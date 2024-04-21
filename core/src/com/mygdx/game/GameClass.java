@@ -74,6 +74,7 @@ public class GameClass extends ApplicationAdapter implements InputProcessor
 	private boolean startingPosition;
 	private boolean isMoving;
 	private float startTime;
+	private final Vector3 lastPosition = new Vector3();
 
 	@Override
 	public void create() {
@@ -261,13 +262,10 @@ public class GameClass extends ApplicationAdapter implements InputProcessor
 
 			if (Gdx.input.isKeyPressed(Input.Keys.W)) {
 				moveTranslation.z += speed * deltaTime;
-				//playerTransform.rotate(Vector3.X, 90*deltaTime);
-				//System.out.println();
 			}
 
 			if (Gdx.input.isKeyPressed(Input.Keys.S)) {
 				moveTranslation.z -= speed * deltaTime;
-				playerTransform.rotate(Vector3.X, -90*deltaTime);
 			}
 
 			if (Gdx.input.isKeyPressed(Input.Keys.A)) {
@@ -306,6 +304,11 @@ public class GameClass extends ApplicationAdapter implements InputProcessor
 			moveTranslation.z += 20 * deltaTime;
 		}
 
+		if (outOfBounds()){
+			System.out.println();
+			moveTranslation.set(0,0,0);
+		}
+
 		// Apply the move translation to the transform
 		playerTransform.translate(moveTranslation);
 		// Set the modified transform
@@ -321,15 +324,24 @@ public class GameClass extends ApplicationAdapter implements InputProcessor
 			startingPosition = false;
 		}
 
-
-
 		currentPosition.y = height + 1.85f;
+
+		setLastPosition();
 
 		playerScene.modelInstance.transform.setTranslation(currentPosition);
 		// Clear the move translation out for the next frame
 		moveTranslation.set(0,0,0);
 	}
 
+	private void setLastPosition(){
+		lastPosition.x = currentPosition.x;
+		lastPosition.y = currentPosition.y;
+		lastPosition.z = currentPosition.z;
+	}
+
+	private boolean outOfBounds(){
+		return currentPosition.x + moveTranslation.x > 400 || currentPosition.z + moveTranslation.z > 400 || currentPosition.x + moveTranslation.x < 0 || currentPosition.z + moveTranslation.z < 0;
+	}
 
 	@Override
 	public void dispose() {
@@ -365,34 +377,34 @@ public class GameClass extends ApplicationAdapter implements InputProcessor
 
 	@Override
 	public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-		System.out.println("down");
-		if (cameraMode == CameraMode.FREE_LOOK && button == Input.Buttons.LEFT) {
-			isDragging = true;
-			dragStartX = screenX;
-			return true;
-		}
+//		System.out.println("down");
+//		if (cameraMode == CameraMode.FREE_LOOK && button == Input.Buttons.LEFT) {
+//			isDragging = true;
+//			dragStartX = screenX;
+//			return true;
+//		}
 		return false;
 	}
 
 	@Override
 	public boolean touchUp(int screenX, int screenY, int pointer, int button) {
-		System.out.println("up");
-		if (button == Input.Buttons.LEFT && isDragging) {
-			isDragging = !isDragging;
-			return true;
-		}
+//		System.out.println("up");
+//		if (button == Input.Buttons.LEFT && isDragging) {
+//			isDragging = !isDragging;
+//			return true;
+//		}
 		return false;
 	}
 
 	@Override
 	public boolean touchDragged(int screenX, int screenY, int pointer) {
-		System.out.println("drag");
-		if(!isDragging){
-			float dragDelta = dragStartX - screenX;
-			angleAroundPlayer -= dragDelta;
-			dragStartX = screenX;
-			return true;
-		}
+//		System.out.println("drag");
+//		if(!isDragging){
+//			float dragDelta = dragStartX - screenX;
+//			angleAroundPlayer -= dragDelta;
+//			dragStartX = screenX;
+//			return true;
+//		}
 		return false;
 	}
 

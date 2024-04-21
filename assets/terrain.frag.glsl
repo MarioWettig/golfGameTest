@@ -56,7 +56,7 @@ void main(void) {
 //    #ifdef diffuseHeightTextureFlag
 //        // Height blending
         float minHeight = 0.1; // The world height blending begins
-        float maxHeight = 2.0; // The world height where blending is 1.0
+        float maxHeight = 1.0; // The world height where blending is 1.0
 
         float blend = normalizeRange(v_worldHeight, minHeight, maxHeight);
         diffuse = mix(diffuse, texture2D(u_diffuseHeightTexture, v_diffuseUV), blend);
