@@ -102,7 +102,7 @@ public class GameClass extends ApplicationAdapter implements InputProcessor
 		cameraController = new FirstPersonCameraController(camera);
 		cameraController.setVelocity(100f);
 
-		Gdx.input.setInputProcessor(new InputMultiplexer(cameraController, this));
+		Gdx.input.setInputProcessor(new InputMultiplexer(this, cameraController));
 		//Gdx.input.setInputProcessor(new );
 
 		// setup light
