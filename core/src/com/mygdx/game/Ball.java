@@ -9,7 +9,7 @@ import net.mgsx.gltf.loaders.glb.GLBLoader;
 import net.mgsx.gltf.scene3d.scene.Scene;
 import net.mgsx.gltf.scene3d.scene.SceneAsset;
 
-public class Ball {
+public class Ball { //cfvneln
 
 
     //libGdx stuff
