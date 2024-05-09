@@ -1,69 +1,56 @@
 package com.mygdx.game.terrains;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.VertexAttributes;
+import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
+import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
+import com.badlogic.gdx.graphics.g3d.utils.MeshBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
+import com.mygdx.game.Settings;
+import com.mygdx.game.physics.parser.Parser;
 import com.mygdx.game.terrains.attributes.TerrainMaterialAttribute;
 import com.mygdx.game.terrains.attributes.TerrainTextureAttribute;
 import net.mgsx.gltf.scene3d.attributes.PBRTextureAttribute;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class TerrainHeight extends Terrain {
-    private static final Vector3 c00 = new Vector3();
-    private static final Vector3 c01 = new Vector3();
-    private static final Vector3 c10 = new Vector3();
-    private static final Vector3 c11 = new Vector3();
 
+    private Parser parser;
+    private String heightFunction;
 
-    private HeightField field;
+    public TerrainHeight(Parser parser, String heightFunction) {
+        this.parser = parser;
+        this.heightFunction = heightFunction;
+        this.sizeRatio = Settings.SIZE_RATIO;
+        this.size = (int) Settings.SIZE;
+        this.resolution = size/6;
 
-    public TerrainHeight() {
-        this.size = 400;
-        this.width = 200;
-        this.height = 200;
-        this.magnitude = 20;
-        int attributes = VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates;
-        field = new HeightField(true, createHeightGrid(), width, height, true, attributes);
-        field.corner00.set(0,0,0);
-        field.corner01.set(0, 0, size);
-        field.corner10.set(size,0,0);
-        field.corner11.set(size, 0,size);
-        field.magnitude.set(0, magnitude, 0);
-//        field.color00.set(0,0,1,1);
-//        field.color01.set(0,1,1,1);
-//        field.color10.set(1,0,1,1);
-//        field.color11.set(1,1,1,1);
-        field.update();
-
+        createTerrainMesh();
         ModelBuilder modelBuilder = new ModelBuilder();
         modelBuilder.begin();
-        modelBuilder.part("terrain", field.mesh, GL20.GL_TRIANGLES, new Material());
+        modelBuilder.part("terrain", mesh, GL20.GL_TRIANGLES, new Material());
         modelInstance = new ModelInstance(modelBuilder.end());
 
-        Material material = modelInstance.materials.get(0);
-
-//        Texture texture = new Texture(Gdx.files.internal("wispy-grass-meadow_albedo.png"), true);
+//        Texture texture = new Texture(Gdx.files.internal("textures/meadow_grass.png"), true);
 //        texture.setFilter(Texture.TextureFilter.MipMapLinearLinear, Texture.TextureFilter.Linear);
 //        texture.setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.Repeat);
 
-        TerrainTextureAttribute baseAttribute = TerrainTextureAttribute.createDiffuseBase(getMipMapTexture("textures/Vol_36_5_Base_Color.png"));
-        TerrainTextureAttribute terrainSlopeTexture = TerrainTextureAttribute.createDiffuseSlope(getMipMapTexture("textures/Vol_16_2_Base_Color.png"));
-        TerrainTextureAttribute terrainHeightTexture = TerrainTextureAttribute.createDiffuseHeight(getMipMapTexture("textures/grass1-albedo3.png"));
+        Material material = modelInstance.materials.get(0);
+        TerrainTextureAttribute baseAttribute = TerrainTextureAttribute.createDiffuseBase(getMipMapTexture("textures/water.png"));
+        TerrainTextureAttribute terrainHeightTexture = TerrainTextureAttribute.createDiffuseHeight(getMipMapTexture("textures/meadow_grass.png"));
 
         baseAttribute.scaleU = 40f;
         baseAttribute.scaleV = 40f;
 
         TerrainMaterial terrainMaterial = new TerrainMaterial();
         terrainMaterial.set(baseAttribute);
-        terrainMaterial.set(terrainSlopeTexture);
         terrainMaterial.set(terrainHeightTexture);
 
-        // Material material = new Material();
         material.set(TerrainMaterialAttribute.createTerrainMaterialAttribute(terrainMaterial));
     }
 
@@ -74,80 +61,126 @@ public class TerrainHeight extends Terrain {
         return texture;
     }
 
-    public float[] createHeightGrid(){
-        float[] heightData = new float[width * height];
-        float scale = 0.1f;  // Scale to adjust the frequency of the height function
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                float hx = x * scale;
-                float hy = y * scale;
-                float data = (float) 0.05*(hx-hy);
-                if (data >= 0) {
-                    heightData[y * width + x] = data; // Example function
-                } else {
-                    heightData[y * width + x] = (float) 0;
+    @Override
+    public float getHeight(float x, float y) {
+        Map<String, Double> valMap = new HashMap<>();
+        valMap.put("x", (double) x);
+        valMap.put("y", (double) y);
+        float eval = (float) (parser.evaluateAt(valMap, heightFunction));
+        if (eval < 0) return -0.001f;
+        return  (float) (parser.evaluateAt(valMap, heightFunction));
+    }
+
+    private void createTerrainMesh() {
+        mesh = new Mesh(true,  resolution * resolution, resolution * resolution * 6,
+                new VertexAttribute(VertexAttributes.Usage.Position, 3, "a_position"),
+                new VertexAttribute(VertexAttributes.Usage.Normal, 3, "a_normal"),
+                new VertexAttribute(VertexAttributes.Usage.TextureCoordinates, 2, "a_texCoord0"),
+                new VertexAttribute(VertexAttributes.Usage.ColorUnpacked, 4, "a_color"));
+
+        float[] vertices = new float[resolution * resolution * 12];
+        short[] indices = new short[(resolution - 1) * (resolution - 1) * 6];
+
+        int idx = 0;
+        int idc = 0;
+        for (int y = 0; y < resolution; y++) {
+            for (int x = 0; x < resolution; x++) {
+                float realX = x * 6 * sizeRatio;
+                float realY = y * 6 * sizeRatio;
+                float realX2 = (x * 6 - size/2)*sizeRatio;
+                float realY2 = (y * 6 - size/2)*sizeRatio ;
+
+                float height = getHeight(realX2, realY2);
+                //System.out.println(realX2 + " " + realY2 + " " + height);
+
+                // Positions
+                vertices[idx] = realX/sizeRatio;
+                vertices[idx + 1] = height/sizeRatio;
+                vertices[idx + 2] = realY/sizeRatio;
+
+                vertices[idx + 3] = 0;
+                vertices[idx + 4] = 1;
+                vertices[idx + 5] = 0;
+
+                // Texture coordinates
+                vertices[idx + 6] = (float) x / (resolution - 1);
+                vertices[idx + 7] = (float) y / (resolution - 1);
+
+                // colour
+                vertices[idx + 8] =  0.5f;  // Mid-intensity red
+                vertices[idx + 9] =  0.5f;  // Mid-intensity green
+                vertices[idx + 10] =  0.5f;  // Mid-intensity blue
+                vertices[idx + 11] =  1.0f; // fully opaque
+
+                idx += 12;
+
+                if (x < resolution - 1 && y < resolution - 1) {
+                    int i0 = x + y * resolution;
+                    int i1 = x + 1 + y * resolution;
+                    int i2 = x + (y + 1) * resolution;
+                    int i3 = x + 1 + (y + 1) * resolution;
+
+                    indices[idc++] = (short) i0;
+                    indices[idc++] = (short) i2;
+                    indices[idc++] = (short) i1;
+
+                    indices[idc++] = (short) i2;
+                    indices[idc++] = (short) i3;
+                    indices[idc++] = (short) i1;
                 }
             }
         }
-        return heightData;
+
+        calculateNormals(vertices, indices);
+
+        mesh.setVertices(vertices);
+        mesh.setIndices(indices);
+    }
+
+
+    private void calculateNormals(float[] vertices, short[] indices) {
+        Vector3 v1 = new Vector3();
+        Vector3 v2 = new Vector3();
+        Vector3 normal = new Vector3();
+
+        for (int i = 0; i < indices.length; i += 3) {
+            int idx1 = indices[i] * 12;
+            int idx2 = indices[i + 1] * 12;
+            int idx3 = indices[i + 2] * 12;
+
+            Vector3 p1 = new Vector3(vertices[idx1], vertices[idx1 + 1], vertices[idx1 + 2]);
+            Vector3 p2 = new Vector3(vertices[idx2], vertices[idx2 + 1], vertices[idx2 + 2]);
+            Vector3 p3 = new Vector3(vertices[idx3], vertices[idx3 + 1], vertices[idx3 + 2]);
+
+            v1.set(p2).sub(p1);
+            v2.set(p3).sub(p1);
+            normal.set(v1).crs(v2).nor();
+
+            for (int j = 0; j < 3; j++) {
+                int normIdx = indices[i + j] * 12 + 3;
+                vertices[normIdx] += normal.x;
+                vertices[normIdx + 1] += normal.y;
+                vertices[normIdx + 2] += normal.z;
+            }
+        }
+
+        // Normalize the normals
+        for (int i = 0; i < vertices.length; i += 12) {
+            normal.set(vertices[i + 3], vertices[i + 4], vertices[i + 5]).nor();
+            vertices[i + 3] = normal.x;
+            vertices[i + 4] = normal.y;
+            vertices[i + 5] = normal.z;
+        }
     }
 
 
     @Override
     public void dispose() {
-        field.dispose();
+        mesh.dispose();
     }
 
-    @Override
-    public float getHeightAtWorld(float worldX, float worldZ) {
-        // Convert world coordinates to a position relative to the terrain
-        modelInstance.transform.getTranslation(c00);
-        //System.out.println(worldX + " " + worldZ);
 
-        float terrainX = worldX - c00.x;
-        float terrainZ = worldZ - c00.z;
-
-        // The size between the vertices
-        float gridSquareSize = size / ((float) width - 1);
-
-        // Determine which grid square the coordinates are in
-        int gridX = (int) Math.floor(terrainX / gridSquareSize);
-        int gridZ = (int) Math.floor(terrainZ / gridSquareSize);
-
-        // Validates the grid square
-        if (gridX >= width - 1 || gridZ >= width - 1 || gridX < 0 || gridZ < 0) {
-            return 0;
-        }
-
-        // Determine where on the grid square the coordinates are
-        float xCoord = (terrainX % gridSquareSize) / gridSquareSize;
-        float zCoord = (terrainZ % gridSquareSize) / gridSquareSize;
-
-        // Determine the triangle we are on and apply barrycentric.
-        float height;
-        if (xCoord <= (1 - zCoord)) { // Upper left triangle
-            height = barryCentric(
-                    c00.set(0, field.data[gridZ * width + gridX], 0),
-                    c10.set(1, field.data[gridZ * width + (gridX + 1)], 0),
-                    c01.set(0, field.data[(gridZ + 1) * width + gridX], 1),
-                    new Vector2(xCoord, zCoord));
-        } else {
-            height =  barryCentric(
-                    c10.set(1, field.data[gridZ * width + (gridX + 1)], 0),
-                    c11.set(1, field.data[(gridZ + 1) * width + (gridX + 1)], 1),
-                    c01.set(0, field.data[(gridZ + 1) * width + gridX], 1),
-                    new Vector2(xCoord, zCoord));
-        }
-
-        return height * magnitude; // * height magnitude alternatively
-    }
-
-    public static float barryCentric(Vector3 p1, Vector3 p2, Vector3 p3, Vector2 pos) {
-        float det = (p2.z - p3.z) * (p1.x - p3.x) + (p3.x - p2.x) * (p1.z - p3.z);
-        float l1 = ((p2.z - p3.z) * (pos.x - p3.x) + (p3.x - p2.x) * (pos.y - p3.z)) / det;
-        float l2 = ((p3.z - p1.z) * (pos.x - p3.x) + (p1.x - p3.x) * (pos.y - p3.z)) / det;
-        float l3 = 1.0f - l1 - l2;
-        return l1 * p1.y + l2 * p2.y + l3 * p3.y;
+    public static void main(String[] args) {
     }
 
 }

@@ -34,10 +34,16 @@ public class Ball { //cfvneln
         position.set(position.x, position.y, position.z);
     }
 
+    public Scene getSceneBall(){
+        return sceneBall;
+    }
+
     public void render(){}
 
     public void update(float delta) {}
 
-    public void dispose(){}
+    public void dispose(){
+        ballAsset.dispose();
+    }
 
 }

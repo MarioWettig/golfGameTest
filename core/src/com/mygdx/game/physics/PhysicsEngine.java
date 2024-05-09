@@ -9,6 +9,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 public class PhysicsEngine {
     // note: all values of x correspond to x, however in game y values correspond to z, and z to y
@@ -29,10 +31,7 @@ public class PhysicsEngine {
     private Parser parser;
     private String terrainExpression;
     public double time;
-    private  float currentPartialX;
-    private float currentPartialY;
     public boolean isAtRest;
-
 
     public PhysicsEngine(String terrainExpression) {
         parser = new Parser();
@@ -47,156 +46,181 @@ public class PhysicsEngine {
         derivative = new Derivative(parser, terrainExpression);
     }
 
-    public float[] computeNewVectorState(float timeStep, float x, float y, float vX, float vY) {
+    public double[] computeNewVectorState(double timeStep, double x, double y, double vX, double vY) {
         time = time + timeStep;
-        float[] pos = computeNewPosition(timeStep, x,y,vX,vY);
-        float[] newPartial = computePartialDerivativesAt(pos[0], pos[1]);
-        float vNextX = computeVelocityFor(timeStep, vX, vY, newPartial[0], newPartial[1]);
-        float vNextY = computeVelocityFor(timeStep, vY, vX, newPartial[1], newPartial[0]);
-        return new float[]{pos[0], pos[1], vNextX,vNextY};
+        double[] pos = computeNewPosition(timeStep, x,y,vX,vY);
+        double[] newPartial = computePartialDerivativesAt(pos[0], pos[1]);
+        double vNextX = computeVelocityFor(timeStep, vX, vY, newPartial[0], newPartial[1]);
+        double vNextY = computeVelocityFor(timeStep, vY, vX, newPartial[1], newPartial[0]);
+        return new double[]{pos[0], pos[1], vNextX, vNextY};
+    }
+
+    public double[] computeFinalVectorState(double timeStep, double x, double y, double vX, double vY) {
+        double[] finalState = {x,y,vX,vY};
+        while(!isAtRest){
+         finalState = computeNewVectorState(timeStep,x,y,vX,vY);
+         x= finalState[0];
+         y = finalState[1];
+         vX = finalState[2];
+         vY = finalState[3];
+        }
+        return finalState;
     }
 
     // uses RK4 to the solve system
-    public float[] computeNewPosition(float timeStep, float x, float y, float vX, float vY) {
+    public double[] computeNewPosition(double timeStep, double x, double y, double vX, double vY) {
         //System.out.println(timeStep + " " + x + " " + y + " " + vX + " " + vY + " starting point");
 
         isAtRest = false;
-        float[] partialDerivative = computePartialDerivativesAt(x,y);
+        double[] partialDerivative = computePartialDerivativesAt(x,y);
         if(staticFriction(vX, vY, partialDerivative[0], partialDerivative[1])){
             isAtRest = true;
-            return new float[]{x, y};
+            return new double[]{x, y};
         }
 
-        float k1x = vX;
-        float k1y = vY;
+        double k1x = vX;
+        double k1y = vY;
 
-        float posNewX = x + k1x * timeStep/2;
-        float posNewY = y + k1y * timeStep/2;
+        double posNewX = x + k1x * timeStep/2;
+        double posNewY = y + k1y * timeStep/2;
+
         partialDerivative = computePartialDerivativesAt(posNewX, posNewY);
-        float k2x = evaluate(vX + (k1x * timeStep)/2, k1y, timeStep/2, partialDerivative[0], partialDerivative[1]);
-        float k2y = evaluate(vY + (k1y * timeStep)/2, k1x,timeStep/2, partialDerivative[1], partialDerivative[0]);
+        double k2x = evaluate(vX + k1x/2, k1y, timeStep/2, partialDerivative[0], partialDerivative[1]);
+        double k2y = evaluate(vY + k1y/2, k1x,timeStep/2, partialDerivative[1], partialDerivative[0]);
         //System.out.println(k2x + " " + k2y + " k2");
 
         posNewX = x + k2x * timeStep/2;
         posNewY = y + k2y * timeStep/2;
+
         partialDerivative = computePartialDerivativesAt(posNewX, posNewY);
-        float k3x = evaluate(vX + (k2x * timeStep)/2, k2y,timeStep/2, partialDerivative[0], partialDerivative[1]);
-        float k3y = evaluate(vY + (k2y * timeStep)/2, k2x,timeStep/2, partialDerivative[1], partialDerivative[0]);
+        double k3x = evaluate(vX + k2x/2, k2y,timeStep/2, partialDerivative[0], partialDerivative[1]);
+        double k3y = evaluate(vY + k2y/2, k2x,timeStep/2, partialDerivative[1], partialDerivative[0]);
         //System.out.println(k3x + " " + k3y + " k3");
 
         posNewX = x + k3x * timeStep;
         posNewY = y + k3y * timeStep;
+
         partialDerivative = computePartialDerivativesAt(posNewX, posNewY);
-        float k4x = evaluate(vX + k3x * timeStep, k3y, timeStep, partialDerivative[0], partialDerivative[1]);
-        float k4y = evaluate(vY + k3y * timeStep, k3x, timeStep, partialDerivative[1], partialDerivative[0]);
+        double k4x = evaluate(vX + k3x, k3y, timeStep, partialDerivative[0], partialDerivative[1]);
+        double k4y = evaluate(vY + k3y, k3x, timeStep, partialDerivative[1], partialDerivative[0]);
         //System.out.println(k4x + " " + k4y + " k4");
 
-        float finalX = x + (timeStep/ 6) * (k1x + 2 * k2x + 2 * k3x + k4x);
-        float finalY = y + (timeStep/ 6) * (k1y + 2 * k2y + 2 * k3y + k4y);
-        System.out.println(finalX + " new x " + finalY + " new y " + time);
+        double finalX = x + (timeStep/ 6) * (k1x + 2 * k2x + 2 * k3x + k4x);
+        double finalY = y + (timeStep/ 6) * (k1y + 2 * k2y + 2 * k3y + k4y);
+        //System.out.println(finalX + " new x " + finalY + " new y " + time);
 
-        return new float[]{finalX, finalY};
+        return new double[]{finalX, finalY};
     }
 
-    public boolean staticFriction(float currentVelocityComponent, float orthogonalVelocityComponent, float partialX, float partialY){
-        if (Math.abs(currentVelocityComponent) >= 0.01f && Math.abs(orthogonalVelocityComponent) >= 0.01f){
+    public boolean staticFriction(double currentVelocityComponent, double orthogonalVelocityComponent, double partialX, double partialY){
+        if (Math.abs(currentVelocityComponent) >= 0.01f || Math.abs(orthogonalVelocityComponent) >= 0.01f){
             return false;
         }
         return PhysicsSettings.STATIC_FRIC_GRASS > Math.sqrt(partialX*partialX + partialY*partialY);
     }
 
-    public float computeVelocityFor(float timeStep,  float vX, float vY ,float partialX, float partialY){
+    public double computeVelocityFor(double timeStep,  double vX, double vY ,double partialX, double partialY){
         return evaluate(vX,vY,timeStep, partialX, partialY);
     }
 
+    private double evaluate(double currentVelocityComponent, double timeStep, double partialX, double partialY){
+        double gradientMagnitude = Math.sqrt(partialX * partialX + partialY * partialY + 1);
 
-    private float evaluate(float currentVelocityComponent, float timeStep, float partialX, float partialY){
-        float gradientMagnitude = (float) Math.sqrt(partialX * partialX + partialY * partialY + 1);
-
-        float gForceAlongSlope = gForceComponent(partialX);
+        double gForceAlongSlope = gForceComponent(partialX);
         //System.out.println(gForceAlongSlope + " gForceAlongSlope");
-        float normalForce = forceNormal(gradientMagnitude);
+        double normalForce = forceNormal(gradientMagnitude);
         //System.out.println(normalForce + " normalForce");
-        float frictionForce = forceFriction(normalForce, currentVelocityComponent, PhysicsSettings.KINETIC_FRIC_GRASS);
+        double frictionForce = forceFriction(normalForce, currentVelocityComponent, PhysicsSettings.KINETIC_FRIC_GRASS);
         //System.out.println(frictionForce + " frictionForce");
 
-        float acceleration = -gForceAlongSlope - frictionForce;
+        double acceleration = -gForceAlongSlope - frictionForce;
         return currentVelocityComponent + (acceleration * timeStep);
     }
 
-    private float evaluate(float currentVelocityComponent, float orthogonalVelocityComponent, float timeStep, float partialC, float partialO){
-        float gradientMagnitude = (float) Math.sqrt(partialC * partialC + partialO * partialO + 1);
+    private double evaluate(double currentVelocityComponent, double orthogonalVelocityComponent, double timeStep, double partialC, double partialO){
+        double gradientMagnitude = Math.sqrt(partialC * partialC + partialO * partialO + 1);
 
-        float gForceAlongSlope = gForceComponent(partialC);
+        double gForceAlongSlope = gForceComponent(partialC, gradientMagnitude);
         //System.out.println(gForceAlongSlope + " gForceAlongSlope");
-        float normalForce = forceNormal(gradientMagnitude);
+        double normalForce = forceNormal(gradientMagnitude);
         //System.out.println(normalForce + " normalForce");
-        float frictionForce = forceFriction(normalForce, currentVelocityComponent, orthogonalVelocityComponent, partialC, partialO);
+        double frictionForce = forceFriction(normalForce, currentVelocityComponent, orthogonalVelocityComponent, partialC, partialO);
         //System.out.println(frictionForce + " frictionForce");
 
-        float acceleration = (-gForceAlongSlope - frictionForce);
+        double acceleration = (-gForceAlongSlope - frictionForce);
         //System.out.println((currentVelocityComponent + acceleration * timeStep) + " velocity at");
         return currentVelocityComponent + acceleration * timeStep;
     }
 
 
 
-
     // g force component parallel to the slope
-    private float gForceComponent(float partial){
-        float sinTheta = (float) (partial / Math.sqrt(partial * partial + 1));
+    private double gForceComponent(double partial){
+        double sinTheta =  (partial / Math.sqrt(partial * partial + 1));
         return PhysicsSettings.G * sinTheta;
     }
-    private float gForceComponent(float partialC, float gradientMagnitude){
+    private double gForceComponent(double partialC, double gradientMagnitude){
         return PhysicsSettings.G * partialC / (gradientMagnitude * gradientMagnitude);
     }
 
     // normal force to the surface
-    private float forceNormal(float gradient){
+    private double forceNormal(double gradient){
         return PhysicsSettings.G/gradient;
     }
 
-    private float forceFriction(float forceNormal, float currentVelocityComponent, float frictionCoefficient) {
+    private double forceFriction(double forceNormal, double currentVelocityComponent, double frictionCoefficient) {
     return frictionCoefficient * forceNormal * Math.signum(currentVelocityComponent);
     }
-    private float forceFriction(float forceNormal, float currentVelocityComponent, float orthogonalVelocityComponent, float partialX, float partialY) {
+    private double forceFriction(double forceNormal, double currentVelocityComponent, double orthogonalVelocityComponent, double partialX, double partialY) {
         double velocityMagnitudeSquared = (currentVelocityComponent * currentVelocityComponent) + (orthogonalVelocityComponent * orthogonalVelocityComponent);
         double dotProductSquared = (partialX * currentVelocityComponent + partialY * orthogonalVelocityComponent) * (partialX * currentVelocityComponent + partialY * orthogonalVelocityComponent);
-        if (dotProductSquared == 0) return 0;
+        if (dotProductSquared + velocityMagnitudeSquared == 0) return 0;
 
-        return (float) (PhysicsSettings.KINETIC_FRIC_GRASS * forceNormal * currentVelocityComponent / Math.sqrt(velocityMagnitudeSquared + dotProductSquared));
+        return (PhysicsSettings.KINETIC_FRIC_GRASS * forceNormal * currentVelocityComponent / Math.sqrt(velocityMagnitudeSquared + dotProductSquared));
+    }
+
+    public double getHeight(double x, double y){
+        parser.constructFor(terrainExpression);
+        Map<String, Double> map = new HashMap<>();
+        map.put("x", x);
+        map.put("y", y);
+        double height = parser.evaluateAt(map, terrainExpression);
+        return height;
     }
 
     // computes the partial derivative with respect to both x and y and returns an array [dh/dx, dh/dy]
-    private float[] computePartialDerivativesAt(double x, double y){
+    private double[] computePartialDerivativesAt(double x, double y){
         double partialX = derivative.derivativeAtPoint("x", "y", x, y, 0.0001);
         double partialY = derivative.derivativeAtPoint("y","x", y, x, 0.0001);
-        float[] gradient = new float[2];
-        gradient[0] = (float) partialX;
-        gradient[1] = (float) partialY;
+        double[] gradient = new double[2];
+        gradient[0] =  partialX;
+        gradient[1] =  partialY;
         //System.out.println(partialX + " "+ partialY + " partials");
         return gradient;
     }
 
-
     public static void main(String[] args) {
-        PhysicsEngine physicsEngine = new PhysicsEngine("0.05*(x^2+y^2)");
-        float x = 10;
-        float y = 10;
-        float vx = 0;
-        float vy = 0;
-        float time = 0.01f;
+        PhysicsEngine physicsEngine = new PhysicsEngine("0.05*(x^2 + y^2)"); //   cos((1/3)*x)-sin((1/3)*y) 0.4*(0.9-e^(-(x^2+y^2)/8))
+        double x = 9;
+        double y = 9;
+        double vx = 0;
+        double vy = 0;
+        double time = 0.01f;
+        //double h = 0;
 
-        while(!physicsEngine.isAtRest){
-            float[] next = physicsEngine.computeNewVectorState(time, x, y, vx, vy);
-            x = next[0];
-            y = next[1];
-            vx = next[2];
-            vy = next[3];
-            System.out.println(Arrays.toString(next) + " " + physicsEngine.time);
-        }
+//        int n =0;
+//        while(!physicsEngine.isAtRest){
+//            double[] next = physicsEngine.computeNewVectorState(time, x, y, vx, vy);
+//            x = next[0];
+//            y = next[1];
+//            vx = next[2];
+//            vy = next[3];
+//            h = physicsEngine.getHeight(x,y);
+//            System.out.println("(" + next[0] + ", " + next[1] + ", " + h + ")" );
+//            n++;
+//        }
 
-        //System.out.println(Arrays.toString(physicsEngine.computeNewVectorState(time, x, y, vx, vy))+ " " + physicsEngine.time);
+        System.out.println(Arrays.toString(physicsEngine.computeFinalVectorState(time, x, y, vx, vy))+ " " + physicsEngine.time);
 
         //physicsEngine.setPartialDerivativeCurrent(x,y);
     }
@@ -243,18 +267,18 @@ public class PhysicsEngine {
         this.filePath = filePath;
         }
 
-        public void makeCSV(double[] array) {
-            try (FileWriter writer = new FileWriter(filePath)) {
-                // Iterate over the array and write each value followed by a newline
-                for (double value : array) {
-                    writer.append(Double.toString(value));
-                    writer.append("\n");  // Write each number on a new line
-                }
-                System.out.println("Data was written successfully to " + filePath);
-            } catch (IOException e) {
-                System.err.println("Error writing to file: " + e.getMessage());
-            }
-        }
+//        public void makeCSV(double[] array) {
+//            try (FileWriter writer = new FileWriter(filePath)) {
+//                // Iterate over the array and write each value followed by a newline
+//                for (double value : array) {
+//                    writer.append(Double.toString(value));
+//                    writer.append("\n");  // Write each number on a new line
+//                }
+//                System.out.println("Data was written successfully to " + filePath);
+//            } catch (IOException e) {
+//                System.err.println("Error writing to file: " + e.getMessage());
+//            }
+//        }
 
     }
 }

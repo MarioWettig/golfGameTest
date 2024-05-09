@@ -49,13 +49,13 @@ public class Derivative {
     }
 
     public static void main(String[] args) {
-        String expression = " 0.05 * (x^2 + y^2)";
+        String expression = " 0.05 * (x^2 + y^2)- sin(x)";
         Map<String, Double> values = new HashMap<>();
         values.put("x", 10.0);
         values.put("y", 10.0);
 
         Derivative derivative = new Derivative(expression);
-        double dub =derivative.derivativeAtPoint("y", "x", 10, 10, 0.001);
+        double dub = derivative.derivativeAtPoint("x", "y", 10, 10, 0.0001);
         System.out.println(dub);
     }
 

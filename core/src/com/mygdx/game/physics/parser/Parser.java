@@ -16,6 +16,12 @@ public class Parser {
         lexer = new Lexer();
     }
 
+    public Parser(String input){
+        lexer = new Lexer();
+        constructFor(input);
+    }
+
+
     public void numOfEquations(int n){
      queueExpression = new Queue[n];
      opStack = new Stack<>();
@@ -114,10 +120,10 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        String expression = " 0.05 * (x^2 + y^2)";
+        String expression = "0.4*(0.9-e^(-(x^2+y^2)/8))";
         Map<String, Double> values = new HashMap<>();
-        values.put("x", 10.0);
-        values.put("y", 10.0);
+        values.put("x", 9.2);
+        values.put("y", 9.2);
 
         Parser parser = new Parser();
         String[] exp = {expression};

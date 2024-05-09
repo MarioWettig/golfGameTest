@@ -162,6 +162,7 @@ public class HeightField implements Disposable {
 				final int c10 = c00 + 1;
 				final int c01 = c00 + (smooth ? width : w * 2);
 				final int c11 = c10 + (smooth ? width : w * 2);
+				//System.out.println(c00 + " " + c10 + " " + c01 + " " + c11);
 				indices[++i] = (short) c11;
 				indices[++i] = (short) c10;
 				indices[++i] = (short) c00;
@@ -378,5 +379,8 @@ public class HeightField implements Disposable {
 		}
 
 		return dest;
+	}
+
+	public static void main(String[] args) {
 	}
 }

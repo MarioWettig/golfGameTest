@@ -1,14 +1,15 @@
 package com.mygdx.game.terrains;
 
+import com.badlogic.gdx.graphics.Mesh;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.utils.Disposable;
 
 public abstract class Terrain implements Disposable {
 
+    protected float sizeRatio;
     protected int size;
-    protected int width;
-    protected int height;
-    protected int magnitude;
+    protected int resolution;
+    protected Mesh mesh;
 
     protected ModelInstance modelInstance;
 
@@ -16,5 +17,6 @@ public abstract class Terrain implements Disposable {
         return modelInstance;
     }
 
-    abstract public float getHeightAtWorld(float worldX, float worldY);
+    abstract public float getHeight(float x, float y);
+
 }
